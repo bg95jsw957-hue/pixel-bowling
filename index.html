@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pixel Bowling">
+<title>Pixel Bowling</title>
+<style>
+html,body{margin:0;height:100%;background:#1b1430;overflow:hidden;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+canvas{position:fixed;left:0;top:0;width:100vw;height:100vh;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none}
+#msg{position:fixed;top:calc(10px + env(safe-area-inset-top));left:0;right:0;text-align:center;font:bold 24px monospace;color:#fff;text-shadow:3px 3px #000;pointer-events:none}
+</style></head><body>
+<canvas id="c"></canvas><div id="msg"></div>
+<script>
+// ===== Lane physics in top-down lane units (lane 42 wide ~ 42in). Ball/pin sizes ~ real proportions.
+const LX=24,LR=66,GW=6,CX=45,PR=1.4,BR=2.2,START_Y=145,FOUL_Y=175,PIN_Y=22,SP=5.2;
+const START_X=CX+9;               // right-handed start: ball sits right of center, hooks left into the 1-3 pocket
+const HOOK_K=0.015;              // hook strength per spin unit
+const SWEET_SPIN=-0.63,SWEET_POW=0.6;   // marker values (-1..1) of the sweet spots
+const POW_ZONES={g:0.12,o:0.25}, SPIN_ZONES={g:0.12,o:0.25}; // half-widths of green / orange zones
+const W=120;let H=200;
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+let ball,pins,state,frames,t0,mPow,mSpin,lockPow,lockSpin;
+// ===== projection
+const Z0=80,SCL=2.3;let HOR=-80;
+function proj(x,y){const z=Math.max(0,FOUL_Y-y),s=Z0/(Z0+z);return{x:W/2+(x-CX)*s*SCL,y:HOR+(H-HOR)*s,s};}
+let bg;
+function buildBg(){bg=g.createImageData(W,H);const d=bg.data,pitY=HOR+(H-HOR)*Z0/(Z0+FOUL_Y-PIN_Y+10);
+ for(let sy=0;sy<H;sy++)for(let sx=0;sx<W;sx++){let c;
+  if(sy<=pitY)c=sy<pitY-14?[27,20,48]:[60,45,90];
+  else{const s=(sy-HOR)/(H-HOR),z=Z0/s-Z0,ly=FOUL_Y-z,lx=CX+(sx-W/2)/(s*SCL);
+   if(lx>=LX&&lx<LR){c=Math.floor((lx-LX)/3)%2?[217,163,90]:[201,143,72];
+    if(Math.abs(ly-105)<1.5&&Math.abs((lx-LX-5)%5.25)<1)c=[122,74,31];
+    if(Math.abs(ly-150)<0.8)c=[122,74,31];if(ly>150.8)c=Math.floor((lx-LX)/3)%2?[236,196,130]:[226,184,118];}
+   else if(lx>=LX-GW&&lx<LR+GW)c=[51,51,51];else c=[27,20,48];}
+  const i=(sy*W+sx)*4;d[i]=c[0];d[i+1]=c[1];d[i+2]=c[2];d[i+3]=255;}}
+function fit(){H=Math.max(160,Math.round(W*innerHeight/innerWidth));HOR=-0.3*H;cv.width=W;cv.height=H;buildBg();layout();}
+addEventListener('resize',fit);
+// ===== game flow
+function msg(t){document.getElementById('msg').textContent=t}
+function reset(){ball={x:START_X,y:START_Y,vx:0,vy:0,gutter:false,spin:0};pins=[];
+ for(let r=0;r<4;r++)for(let i=0;i<=r;i++)pins.push({x:CX+(i-r/2)*SP,y:PIN_Y+(3-r)*SP*0.866,vx:0,vy:0,down:false});
+ state='power';frames=0;t0=now();lockPow=lockSpin=null;msg('Tap BOWL to set power');}
+const now=()=>performance.now();
+function osc(ms){const t=((now()-t0)/ms)%2;return t<1?t*2-1:3-t*2;} // triangle wave -1..1
+function press(){
+ if(state==='power'){lockPow=mPow;state='spin';t0=now();msg('Tap again for spin');}
+ else if(state==='spin'){lockSpin=mSpin;launch(lockPow,lockSpin);}
+ else if(state==='done')reset();}
+function launch(pv,sv){ // pv,sv: marker positions -1..1
+ const power=(pv+1)/2;            // 0..1 (top of bar = max)
+ ball.vy=-(1.0+power*2.4);ball.vx=0;ball.spin=sv;state='roll';msg('');}
+function collide(a,ra,b,rb,ma,mb){const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),m=ra+rb;if(d===0||d>=m)return 0;
+ const nx=dx/d,ny=dy/d,o=(m-d)/2;a.x-=nx*o;a.y-=ny*o;b.x+=nx*o;b.y+=ny*o;
+ const rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;if(rv>0)return 0;const j=-1.6*rv/(1/ma+1/mb);
+ a.vx-=j*nx/ma;a.vy-=j*ny/ma;b.vx+=j*nx/mb;b.vy+=j*ny/mb;return -rv;}
+const FALL=0.35; // minimum impact speed to knock a pin down
+function step(){if(state!=='roll')return;frames++;for(let k=0;k<6;k++)sub(1/6);
+ const b=ball,moving=pins.some(p=>Math.hypot(p.vx,p.vy)>0.03);
+ if((b.y<4||Math.hypot(b.vx,b.vy)<0.05)&&!moving||frames>1200)finish();}
+function sub(dt){const b=ball;
+ if(!b.gutter&&b.y>PIN_Y-6&&b.vy<0){const prog=Math.min(1,(START_Y-b.y)/(START_Y-PIN_Y)),dy=-b.vy*dt,v=-b.vy;
+  let slope=b.vx/v;slope+=b.spin*HOOK_K*prog*prog*dy*(2.92/v);b.vx=slope*v;}
+ b.x+=b.vx*dt;b.y+=b.vy*dt;b.vy*=1-0.0015*dt;
+ if(!b.gutter&&(b.x<LX||b.x>LR)){b.gutter=true;b.x=b.x<LX?LX-GW/2:LR+GW/2;b.vx=0;}
+ for(const p of pins)if(!b.gutter){const imp=collide(b,BR,p,PR,5,1);if(imp>FALL)p.down=true;}
+ for(let i=0;i<pins.length;i++)for(let j=i+1;j<pins.length;j++){const a=pins[i],c=pins[j];const imp=collide(a,PR,c,PR,1,1);if(imp>FALL)a.down=c.down=true;}
+ for(const p of pins){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-0.04*dt;p.vy*=1-0.04*dt;}}
+function finish(){state='done';const n=pins.filter(p=>p.down).length;
+ const left=pins.map((p,i)=>!p.down?i:-1).filter(i=>i>=0);
+ const split=n<10&&n>0&&pins[0].down&&left.length>=2&&isSplit(left);
+ msg(n===10?'STRIKE! 10 pins!':n+' pin'+(n===1?'':'s')+' down'+(split?' - SPLIT!':'')+(ball.gutter&&n===0?' (gutter!)':''));}
+function isSplit(idx){const xs=idx.map(i=>pins[i].x).sort((a,b)=>a-b);for(let i=1;i<xs.length;i++)if(xs[i]-xs[i-1]>SP*1.4)return true;return false;}
+// ===== drawing helpers
+function px(x,y,w,h,c){g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)))}
+const FONT={b:'100100111101111',o:'000111101101111',w:'000101101111111',l:'110010010010111',r:'000111100100100',e:'000111111100111',s:'000011110011110',t:'010111010010011'};
+function text(str,x,y,c){for(const ch of str){const f=FONT[ch];if(f)for(let i=0;i<15;i++)if(f[i]==='1')px(x+(i%3)*2,y+(i/3|0)*2,2,2,c);x+=8;}}
+function drawPin(p){const q=proj(p.x,p.y),k=q.s*3;
+ if(p.down){px(q.x-3*k,q.y-1.5*k,6*k,2*k,'#aaa');px(q.x+1.5*k,q.y-1.5*k,1.5*k,2*k,'#c22');return;}
+ px(q.x-1*k,q.y-9*k,2*k,3*k,'#fff');px(q.x-1*k,q.y-7*k,2*k,1*k,'#c22');px(q.x-1.5*k,q.y-6*k,3*k,6*k,'#fff');px(q.x-0.5*k,q.y-5*k,1*k,4*k,'#ddd');}
+function drawBall(){const b=ball;if(b.y<4)return;const q=proj(b.x,b.y),r=Math.max(1,BR*1.6*q.s*SCL);
+ for(let yy=-r;yy<r;yy++){const w=Math.sqrt(Math.max(0,r*r-(yy+.5)*(yy+.5)));px(q.x-w,q.y-r+yy,2*w,1,'#2a5bd7');}
+ px(q.x-r*.5,q.y-r*1.6,Math.max(1,r*.3),Math.max(1,r*.3),'#9cf');
+ if(r>3){px(q.x,q.y-r*1.2,1,1,'#113');px(q.x+r*.3,q.y-r,1,1,'#113');}}
+// ===== cross meter + button (bottom right)
+let M; // layout
+function layout(){const L=51,T=11,btnH=19;const cy=H-btnH-12-(L>>1);M={cx:W-31,cy,L,T,btn:{x:W-56,y:H-btnH-6,w:52,h:btnH}};}
+function zoneColor(v,sweet,z){const d=Math.abs(v-sweet);return d<z.g?'#4c4':d<z.o?'#f93':'#d33';}
+function drawMeter(){const {cx,cy,L,T}=M,h=L>>1,t=T>>1;
+ // outlines (white, 1px) around the cross
+ px(cx-t-1,cy-h-1,T+2,L+2,'#fff');px(cx-h-1,cy-t-1,L+2,T+2,'#fff');
+ px(cx-t,cy-h,T,L,'#000');px(cx-h,cy-t,L,T,'#000');
+ for(let i=0;i<L;i++){const v=1-2*i/(L-1);px(cx-t,cy-h+i,T,1,zoneColor(v,SWEET_POW,POW_ZONES));}       // vertical: top=+1
+ for(let i=0;i<L;i++){const v=-1+2*i/(L-1);px(cx-h+i,cy-t+1,1,T-2,zoneColor(v,SWEET_SPIN,SPIN_ZONES));} // horizontal
+ px(cx-t,cy-t,T,T,'#000');px(cx-t+1,cy-t+1,T-2,T-2,'#444');                                         // hub
+ const pv=state==='power'?mPow:lockPow,sv=state==='spin'?mSpin:lockSpin;
+ if(pv!=null){const y=cy-pv*h;px(cx-t-2,y-1,T+4,2,'#000');px(cx-t-1,y-1,T+2,1,'#fff');}
+ if(sv!=null){const x=cx+sv*h;px(x-1,cy-t-2,2,T+4,'#000');px(x-1,cy-t-1,1,T+2,'#fff');}}
+function drawButton(){const b=M.btn,lbl=state==='done'?'reset':'bowl',dis=state==='roll';
+ px(b.x+1,b.y+2,b.w,b.h,'#000');                       // shadow
+ px(b.x,b.y,b.w,b.h,'#3a1a0a');px(b.x+1,b.y+1,b.w-2,b.h-2,dis?'#8a5a3a':'#e2672a');
+ px(b.x+1,b.y+1,b.w-2,1,'#f59a5a');px(b.x+1,b.y+b.h-2,b.w-2,1,'#b54a18');
+ const tw=lbl.length*8-2,tx=Math.round(b.x+(b.w-tw)/2),ty=Math.round(b.y+(b.h-10)/2);text(lbl,tx+1,ty+1,'#000');text(lbl,tx,ty,'#fff');}
+function draw(){g.putImageData(bg,0,0);
+ const items=pins.map(p=>({y:p.y,f:()=>drawPin(p)}));items.push({y:ball.y,f:drawBall});items.sort((a,b)=>a.y-b.y).forEach(i=>i.f());
+ drawMeter();drawButton();}
+// ===== input: the button (generous hit box) is the only control
+cv.addEventListener('pointerdown',e=>{e.preventDefault();const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*W/r.width,y=(e.clientY-r.top)*H/r.height,b=M.btn;
+ if(x>=b.x-6&&x<=b.x+b.w+6&&y>=b.y-6&&y<=b.y+b.h+6)press();});
+addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();press();}});
+document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('dblclick',e=>e.preventDefault());
+function loop(){if(state==='power')mPow=osc(650);if(state==='spin')mSpin=osc(700);step();step();draw();requestAnimationFrame(loop)}
+fit();reset();if(location.hash==="#demo"){lockPow=0.62;state="spin";t0=now()-200;msg("Tap again for spin");}loop();
+window.__test={get ball(){return ball},get pins(){return pins},get state(){return state},reset,launch,step,finish,arrive(p,s){reset();launch(p,s);while(ball.y>PIN_Y+8&&state==='roll')sub(1/6);return ball.x-CX},setT0(v){t0=v}};
+</script></body></html>
