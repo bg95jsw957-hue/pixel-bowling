@@ -152,7 +152,7 @@ function buildBg(){bgc=document.createElement('canvas');bgc.width=W;bgc.height=H
   else{const z=Z0/s-Z0,ly=FOUL_Y-z,lx=CX+(sx-W/2)/(s*SCL);let u=lx-LX;const k=Math.floor((u+GW+2+(LANE_P-42-2*GW-4)/2)/LANE_P);u-=k*LANE_P;
    c=laneColor(u,ly,sx,s,k);}
   const vx=(sx/W-0.5)*2,vy=sy/H;const vig=1-0.32*vx*vx*vx*vx-0.25*Math.max(0,vy-0.85)*4;
-  const i=(sy*W+sx)*4;d[i]=c[0]*vig;d[i+1]=c[1]*vig;d[i+2]=c[2]*vig;d[i+3]=255;}}
+  const i=(sy*W+sx)*4,th=(B4[sy&3][sx&3]+0.5)/16;for(let ch=0;ch<3;ch++){let v=c[ch]*vig;const m=(c[0]+c[1]+c[2])/3*vig;v=m+(v-m)*1.25;d[i+ch]=clamp(Math.floor(v/36+th)*36,0,255);}d[i+3]=255;}}
  b.putImageData(img,0,0);
  // --- ceiling + back wall + masking units (drawn on top, screen space)
  const pinTop=proj(CX,PIN_Y).y-15*proj(CX,PIN_Y).s*SCL;maskBot=Math.round(pinTop-3);maskTop=Math.round(maskBot-Math.max(26,H*0.075));if(PORTRAIT){maskTop=57;maskBot=89;}
@@ -205,7 +205,7 @@ function drawPin(p){const v=pinVis(p);if(v.alpha<=0.05)return;const a=(p.fall||0
  const lx=p.dx||1,ly_=p.dy||0;let ax=lx*sa,ay=-ca+ly_*sa;const L=Math.hypot(ax,ay)||1;
  const hop=Math.sin((p.fall||0)*Math.PI)*v.hp*0.25*(p.hopK||0);
  // shadow
- g.globalAlpha=0.32*v.alpha;rect(v.q.x-v.hp*0.22+ax*v.hp*0.3,v.by-1,v.hp*0.5+Math.abs(ax)*v.hp*0.5,2,'#1a0f08');g.globalAlpha=1;
+ if(v.alpha>0.5)dith(v.q.x-v.hp*0.3+ax*v.hp*0.3,v.by-1,v.hp*0.6+Math.abs(ax)*v.hp*0.5,2,'#2a1408');
  if(IMG.pin_sheet&&USE_PIN_SPRITES){drawPinSprite(p,v);return;}drawPinShape(v.q.x,v.by-hop-(p.fall?prof(0)*v.hp:0),ax/L,ay/L,v.hp*(p.fall?0.95:1),v.alpha);}
 let USE_PIN_SPRITES=!/nosprite/.test(location.search);
 function drawPinRefl(p){if(p.down||p.y<PIN_Y-10)return;const v=pinVis(p);drawPinShape(v.q.x,v.by+1,0,1,v.hp*0.6,0.13);}
@@ -214,7 +214,9 @@ const BALL_PAL=[];(function(){const base=[[20,14,70],[38,30,128],[60,62,196],[96
  for(const set of [base,sw])BALL_PAL.push(set.map(c=>`rgb(${c})`));})();
 const HOLES=[[0,-.35,.94],[-.22,-.62,.75],[.22,-.62,.75]].map(v=>{const l=Math.hypot(...v);return v.map(x=>x/l);});
 const BAYER=[[0,2],[3,1]];
-function drawBallAt(cx,cy,r,rot,tilt,alpha,refl){
+const B4=[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+function dith(x,y,w,h,c){g.fillStyle=c;x=Math.round(x);y=Math.round(y);for(let j=0;j<Math.round(h);j++)for(let i=(j+x+y)&1;i<Math.round(w);i+=2)g.fillRect(x+i,y+j,1,1);}
+function drawBallAt(cx,cy,r,rot,tilt,alpha,refl){if(!refl){const o=Math.ceil(r)+1;g.fillStyle='#0c0820';for(let yy=-o;yy<o;yy++){const w=Math.sqrt(Math.max(0,(r+1)*(r+1)-(yy+.5)*(yy+.5)));if(w>0)g.fillRect(Math.round(cx-w),Math.round(cy+yy),Math.round(2*w),1);}}
  const R_=Math.max(1.5,r),ir=Math.ceil(R_);const cr=Math.cos(rot),sr=Math.sin(rot),ct=Math.cos(tilt),st=Math.sin(tilt);g.globalAlpha=alpha;
  for(let yy=-ir;yy<ir;yy++)for(let xx=-ir;xx<ir;xx++){const nx=(xx+0.5)/R_,ny=(yy+0.5)/R_*(refl?-1:1),q=nx*nx+ny*ny;if(q>1)continue;const nz=Math.sqrt(1-q);
   // lighting
@@ -233,7 +235,7 @@ function drawBallAt(cx,cy,r,rot,tilt,alpha,refl){
 function ballVis(){const b=ball,q=proj(b.x,b.y),r=BR*1.6*q.s*SCL*0.5*2;let cy=q.y-r,alpha=1;if(b.gutter)cy+=r*0.45;
  if(b.y<PIN_Y-10){const dr=clamp((PIN_Y-10-b.y)/5,0,1);cy+=dr*r*2;alpha=1-dr;}return{q,r,cy,alpha};}
 function drawBall(){if(ball.y<PIN_Y-16)return;const v=ballVis();
- g.globalAlpha=0.35*v.alpha;rect(v.q.x-v.r*0.9,v.q.y-v.r*0.25+(ball.gutter?v.r*0.45:0),v.r*1.8,v.r*0.5,'#1a0f08');rect(v.q.x-v.r*0.6,v.q.y-v.r*0.35+(ball.gutter?v.r*0.45:0),v.r*1.2,v.r*0.7,'#1a0f08');g.globalAlpha=1;
+ if(v.alpha>0.5){const gy=ball.gutter?v.r*0.45:0;dith(v.q.x-v.r*1.1,v.q.y-v.r*0.2+gy,v.r*2.2,v.r*0.45,'#2a1408');rect(v.q.x-v.r*0.6,v.q.y-v.r*0.15+gy,v.r*1.2,Math.max(1,v.r*0.25),'#2a1408');}
  drawBallAt(v.q.x,v.cy,v.r,ball.rot,(ball.spin||0)*0.5+(state==='spin'||state==='power'?(lockSpin??mSpin??0)*0.5:0),v.alpha,false);}
 function drawBallRefl(){if(ball.gutter||ball.y<PIN_Y-8)return;const v=ballVis();drawBallAt(v.q.x,v.q.y+v.r*0.85,v.r*0.85,ball.rot,0,0.16,true);}
 // ---- sprite assets (fall back to code-drawn if missing)
@@ -343,10 +345,10 @@ function draw(){
  // blinking masking lights
  if(!BD){const sB=proj(CX,PIN_Y-6).s,hw=(21+GW+1)*sB*SCL,ph=(now()/120|0);for(let x=Math.round(W/2-hw)+3,i=0;x<W/2+hw-2;x+=4,i++)if((i+ph)%6===0)rect(x,maskBot-3,2,1,'#fff');}
  g.save();g.beginPath();g.rect(0,maskBot,W,H);g.clip();
- for(const p of pins)drawPinRefl(p);drawBallRefl();drawAim();
+ drawAim();
  const items=pins.map(p=>({y:p.y+(p.sweepY||0),f:()=>drawPin(p)}));items.push({y:ball.y+0.5,f:drawBall});
  items.sort((a,b)=>a.y-b.y).forEach(i=>i.f());g.restore();
- for(const q of parts){rect(q.x,q.y,q.life>20?2:1,q.life>20?2:1,q.c);}
+ for(const q of parts){const z=q.life>15?2:1;rect(q.x-1,q.y-1,z+2,z+2,'#120a1c');rect(q.x,q.y,z,z,q.c);}
  g.setTransform(1,0,0,1,0,0);
  drawCard();drawHint();drawMeter();drawButton();drawBanner();}
 // ---- layout
