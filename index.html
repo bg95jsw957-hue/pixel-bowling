@@ -17,8 +17,8 @@ canvas{position:fixed;left:0;top:0;image-rendering:pixelated;image-rendering:cri
 <script>
 "use strict";
 // ================= PHYSICS (top-down lane units, unchanged from previous version) =================
-const LX=24,LR=66,GW=6,CX=45,PR=1.4,BR=2.2,START_Y=145,FOUL_Y=175,PIN_Y=22,SP=5.2;
-const DEF_START_X=CX+9;           // default: right of center
+const LX=24,LR=66,GW=6,CX=45,PR=2.4,BR=4.3,START_Y=145,FOUL_Y=175,PIN_Y=22,SP=11; // real proportions: 12in pin spacing, 4.8in pins, 8.6in ball
+const DEF_START_X=CX;              // ball starts centered
 const AIM_Y=105;                  // target arrows row
 const HOOK_K=0.015;
 let ball,pins,state,frames,t0,mPow,mSpin,lockPow,lockSpin,freeze=false;
@@ -42,7 +42,7 @@ function sub(dt){const b=ball;
  if(!b.gutter&&(b.x<LX||b.x>LR)){b.gutter=true;b.x=b.x<LX?LX-GW/2:LR+GW/2;b.vx=0;}
  for(const p of pins)if(!b.gutter){const imp=collide(b,BR,p,PR,5,1);if(imp>FALL)p.down=true;if(imp>0)hitFx(p,imp);}
  for(let i=0;i<pins.length;i++)for(let j=i+1;j<pins.length;j++){const a=pins[i],c=pins[j];const imp=collide(a,PR,c,PR,1,1);if(imp>FALL)a.down=c.down=true;}
- for(const p of pins){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-0.04*dt;p.vy*=1-0.04*dt;}}
+ for(const p of pins){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-0.015*dt;p.vy*=1-0.015*dt;}}
 // ================= SCORING =================
 function computeTotals(r){const out=[];let i=0,tot=0;
  for(let f=0;f<10&&i<r.length;f++){
@@ -69,13 +69,14 @@ let lastMsg='',banner=null,sub2='';
 function setupBall(fullRack){
  if(fullRack)pins=newRack();else pins=pins.filter(p=>!p.down).map(p=>({x:p.x,y:p.y,vx:0,vy:0,down:false}));
  ball={x:aim.x,y:START_Y,vx:0,vy:0,gutter:false,spin:0,rot:0};
- state='spin';frames=0;t0=now();lockPow=lockSpin=null;sweep=0;banner=null;sub2='';}
+ state='aim';frames=0;t0=now();lockPow=lockSpin=null;sweep=0;banner=null;sub2='';}
 function reset(){G=newGame();setupBall(true);}
 const now=()=>performance.now();
 function osc(ms){const t=((now()-t0)/ms)%2;return t<1?t*2-1:3-t*2;}
 let btnPress=0;
 function press(){btnPress=6;
- if(state==='spin'){lockSpin=mSpin;state='power';t0=now();}
+ if(state==='aim'){state='spin';t0=now();}
+ else if(state==='spin'){lockSpin=mSpin;state='power';t0=now();}
  else if(state==='power'){lockPow=mPow;launch(lockPow,lockSpin);}
  else if(state==='done'){setupBall(G.fresh);}
  else if(state==='over'){reset();}}
@@ -124,7 +125,7 @@ function laneColor(u,ly,sx,s,k){ // u: lane-local x (0..42 lane), k: lane index 
   const tones=[[214,160,96],[204,149,86],[222,171,106],[197,141,80],[210,156,92]];
   c=tones[(h*5)|0].slice();
   const grain=Math.sin(ly*0.55+h*40+Math.sin(ly*0.13+h*9)*2)*7;c[0]+=grain;c[1]+=grain*0.8;c[2]+=grain*0.5;
-  if(ly<PIN_Y+13){c=[c[0]+22,c[1]+26,c[2]+30];}
+  if(ly<PIN_Y+33){c=[c[0]+22,c[1]+26,c[2]+30];}
   if(ly>150.6){c=[c[0]+20,c[1]+22,c[2]+20];}
   if(ppb>=2.4&&u-b<0.11){c=[c[0]*0.8,c[1]*0.78,c[2]*0.75];}
   // foul line
@@ -136,7 +137,7 @@ function laneColor(u,ly,sx,s,k){ // u: lane-local x (0..42 lane), k: lane index 
   // target arrows
   for(let a=0;a<7;a++){const uc=5.5+a*5.17,tip=AIM_Y-6+Math.abs(uc-21)*0.45;if(ly>=tip&&ly<tip+7){const hw=(ly-tip)/7*1.25+0.2;if(Math.abs(u-uc)<hw)c=Math.abs(u-uc)<hw-0.5?[150,46,34]:[90,30,26];}}
   // pin spots
-  if(ly<PIN_Y+13&&ly>PIN_Y-2)for(let r=0;r<4;r++)for(let i=0;i<=r;i++){const px_=21+(i-r/2)*SP,py=PIN_Y+(3-r)*SP*0.866;if(Math.hypot(u-px_,(ly-py))<0.7)c=[150,108,70];}
+  if(ly<PIN_Y+33&&ly>PIN_Y-2)for(let r=0;r<4;r++)for(let i=0;i<=r;i++){const px_=21+(i-r/2)*SP,py=PIN_Y+(3-r)*SP*0.866;if(Math.hypot(u-px_,(ly-py))<0.7)c=[150,108,70];}
   // gloss: soft reflections of ceiling lights, stronger toward the pins
   const far=clamp((150-ly)/130,0,1);let gl=0;
   for(const uc of [10.5,31.5])gl+=Math.exp(-(((u-uc)/2.6)**2))*(0.15+0.55*far*far);
@@ -234,7 +235,7 @@ function drawBallAt(cx,cy,r,rot,tilt,alpha,refl){if(!refl){const o=Math.ceil(r)+
   if(q>0.86&&!hole)col=BALL_PAL[swirl][Math.max(0,lvl-1)];
   g.fillStyle=col;g.fillRect(Math.round(cx+xx),Math.round(cy+yy),1,1);}
  g.globalAlpha=1;}
-function ballVis(){const b=ball,q=proj(b.x,b.y),r=BR*1.6*q.s*SCL*0.5*2;let cy=q.y-r,alpha=1;if(b.gutter)cy+=r*0.45;
+function ballVis(){const b=ball,q=proj(b.x,b.y),r=3.52*q.s*SCL;let cy=q.y-r,alpha=1;if(b.gutter)cy+=r*0.45;
  if(b.y<PIN_Y-10){const dr=clamp((PIN_Y-10-b.y)/5,0,1);cy+=dr*r*2;alpha=1-dr;}return{q,r,cy,alpha};}
 function drawBall(){if(ball.y<PIN_Y-16)return;const v=ballVis();
  if(v.alpha>0.5){const gy=ball.gutter?v.r*0.45:0;dith(v.q.x-v.r*1.1,v.q.y-v.r*0.2+gy,v.r*2.2,v.r*0.45,'#2a1408');rect(v.q.x-v.r*0.6,v.q.y-v.r*0.15+gy,v.r*1.2,Math.max(1,v.r*0.25),'#2a1408');}
@@ -330,10 +331,10 @@ function drawBanner(){if(!banner)return;const key={'STRIKE!':'text_strike','SPAR
  for(let i=0;i<str.length;i++){const ch=str[i];const c=banner.col==='rainbow'?['#ff4a4a','#ffb02e','#ffe94a','#5be05b','#4ad0ff','#b07cff'][(i+(t>>2))%6]:banner.col;
   const yy=y+Math.round(Math.sin(t*0.25+i*0.8)*(t<30?2:1));textO(ch,x,yy,s,c,'#120a1c','rgba(0,0,0,0.5)');x+=4*s;}
  if(sub2){const ss=Math.max(1,Math.round(K));textO(sub2,W/2-tw(sub2,ss)/2,y+6*s+6,ss,'#ffd84a');}}
-function drawHint(){let h='';if(state==='spin')h=lockSpin==null?'DRAG LANE TO AIM':'';else if(state==='power')h='';else if(state==='over')h='TAP NEW GAME';
+function drawHint(){let h='';if(state==='aim')h='TAP TO LOCK AIM';else if(state==='spin')h='TAP TO LOCK SPIN';else if(state==='power')h='TAP TO BOWL';else if(state==='over')h='TAP NEW GAME';
  if(h){const y=SAT+42;textO(h,W/2-tw(h,1)/2,y,1,'#fff');}}
 // ---- aim indicator (direction only)
-function drawAim(){if(state!=='spin')return;const a=proj(ball.x,START_Y-1),b=proj(aim.tx,AIM_Y);
+function drawAim(){if(state!=='aim'&&state!=='spin'&&state!=='power')return;const a=proj(ball.x,START_Y-1),b=proj(aim.tx,AIM_Y);
  const n=14,ph=(now()/90)%1;for(let i=0;i<n;i++){const t=(i+ph)/n;const ly=START_Y-1+(AIM_Y-START_Y+1)*t,lx=ball.x+(aim.tx-ball.x)*t,q=proj(lx,ly);
   const sz=Math.max(2,Math.round(q.s*2*K*0.7));rect(q.x-sz/2,q.y-sz/2,sz,sz,i%2?'rgba(255,255,255,0.85)':'rgba(255,216,74,0.9)');}
  // chevron at target arrow
@@ -366,18 +367,18 @@ function setAim(p){const u=unproj(p.x,p.y);if(!(u.s>0))return;
  if(u.y>AIM_Y+20){aim.x=clamp(u.x,LX+BR+0.5,LR-BR-0.5);ball.x=aim.x;}else{aim.tx=clamp(u.x,LX+1,LR-1);}}
 cv.addEventListener('pointerdown',e=>{e.preventDefault();const p=toGame(e),b=M.btn;
  if(p.x>=b.x-8&&p.x<=b.x+b.w+8&&p.y>=b.y-8&&p.y<=b.y+b.h+8){press();return;}
- if(state==='spin'&&lockSpin==null&&p.y>maskBot){aiming=true;setAim(p);}});
+ });
 cv.addEventListener('pointermove',e=>{if(aiming&&state==='spin'){e.preventDefault();setAim(toGame(e));}});
 addEventListener('pointerup',()=>aiming=false);addEventListener('pointercancel',()=>aiming=false);
 addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();press();}});
 document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 document.addEventListener('gesturestart',e=>e.preventDefault());
 document.addEventListener('dblclick',e=>e.preventDefault());
-function loop(){if(state==='spin')mSpin=osc(720);if(state==='power')mPow=osc(620);step();step();updateVisuals();draw();requestAnimationFrame(loop);}
+function loop(){if(state==='aim')aim.tx=CX+osc(1100)*(21-3);if(state==='spin')mSpin=osc(720);if(state==='power')mPow=osc(620);step();step();updateVisuals();draw();requestAnimationFrame(loop);}
 // ================= BOOT (+ screenshot demo modes via URL hash) =================
 fit();reset();
 if(location.hash==='#idle'||location.hash==='#roll'){for(const n of [10,7,3,9,0,10,8,2,6,1])applyRoll(G,n);G.fresh=true;setupBall(true);aim.tx=CX+6;
- if(location.hash==='#roll'){aim.x=CX+9;ball.x=aim.x;aim.tx=CX+6.6;lockSpin=0;launch(0.6,0);let i=0;while(pins.filter(p=>p.down).length<4&&i++<900)for(let k=0;k<6;k++)sub(1/6);for(let k=0;k<4;k++){for(let j=0;j<6;j++)sub(1/6);}freeze=true;banner={t:20,text:'STRIKE!',col:'rainbow'};}}
+ if(location.hash==='#roll'){aim.x=CX;ball.x=aim.x;aim.tx=42;lockSpin=0.6;lockPow=0.2;launch(0.2,0.6);let i=0;while(pins.filter(p=>p.down).length<4&&i++<900)for(let k=0;k<6;k++)sub(1/6);for(let k=0;k<4;k++){for(let j=0;j<6;j++)sub(1/6);}freeze=true;banner={t:20,text:'STRIKE!',col:'rainbow'};}}
 loop();
 window.__test={get ball(){return ball},get pins(){return pins},get state(){return state},get G(){return G},get msg(){return lastMsg},aim,reset,setupBall,launch,step,finish,computeTotals,applyRoll,newGame,marks};
 </script></body></html>
