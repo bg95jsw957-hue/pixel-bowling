@@ -176,7 +176,7 @@ function drawCrowd(){const SR=IMG.crowd_smooth_right,SL=IMG.crowd_smooth_left;if
  g.save();g.beginPath();g.moveTo(0,yTop);g.lineTo(far.x,yTop);g.lineTo(far.x,far.y);g.lineTo(nr.x,nr.y);g.lineTo(0,nr.y);g.closePath();
  const yr=t2=>far.y+(nrR.y-far.y)*t2;const tm=clamp((mTop-farR.y)/(nrR.y-farR.y),0,1),xm=farR.x+(nrR.x-farR.x)*tm;
  g.moveTo(W,yTop);g.lineTo(farR.x,yTop);g.lineTo(farR.x,farR.y);g.lineTo(xm,Math.max(farR.y,mTop));g.lineTo(W,Math.max(farR.y,mTop));g.closePath();g.clip();
- const calm=t<slowUntil,ex=Math.max(0,heat);
+ const calm=t<slowUntil,ex=Math.max(0,heat);g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
  for(const c of CROWD){const q=proj(c.x,c.ly),k=q.s/0.2982*(Q/2);const grp=c.id%3===2,fw=grp?192:96,w=fw*k,h=192*k;if(q.x+w<0||q.x-w>W)continue;
   const ct=t-cheerStart-c.slot*30,cheer=cheerHold||(ct>0&&ct<1800)||(ex>0.5&&((c.id+((t/700)|0))%Math.max(2,Math.round(6-ex*4))===0));
   let im,f,ax;
@@ -184,7 +184,7 @@ function drawCrowd(){const SR=IMG.crowd_smooth_right,SL=IMG.crowd_smooth_left;if
    f=cheer?3+(((t/140)|0)+c.id)%2:[0,1,2,1][(((t+c.ph)/((calm?320:180)/HM()))|0)%4];g.drawImage(im,f*192,0,192,192,Math.round(q.x-ax*k),Math.round(q.y-188*k),Math.round(w),Math.round(h));}
   else{im=c.side?SL:SR;ax=c.side?47:48;f=cheer?8+((((t+c.ph)/70)|0)%6):((((t+c.ph)/((calm?220:120)/HM()))|0)%8);
    g.drawImage(im,f*96,c.row*192,96,192,Math.round(q.x-ax*k),Math.round(q.y-188*k),Math.round(w),Math.round(h));}}
- g.restore();}
+ g.restore();g.imageSmoothingEnabled=false;}
 function textO(str,x,y,s,c,o,sh){o=o||'#120a1c';if(sh)text(str,x+s,y+s+1,s,sh);for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1],[1,1],[-1,1],[1,-1],[-1,-1]])text(str,x+dx,y+dy,s,o);text(str,x,y,s,c);}
 function rect(x,y,w,h,c){g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));}
 // ---- background (static, built once per resize)
