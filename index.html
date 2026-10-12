@@ -307,14 +307,19 @@ function drawBall(){if(ball.y<PIN_Y-16)return;const v=ballVis();
  drawBallAt(v.q.x,v.cy,v.r,ball.rot,(ball.spin||0)*0.5+(state==='spin'||state==='power'?(lockSpin??mSpin??0)*0.5:0),v.alpha,false);}
 function drawBallRefl(){if(ball.gutter||ball.y<PIN_Y-8)return;const v=ballVis();drawBallAt(v.q.x,v.q.y+v.r*0.85,v.r*0.85,ball.rot,0,0.16,true);}
 // ---- sprite assets (fall back to code-drawn if missing)
-const IMG={};for(const n of ['pin_sheet','bowl_button','text_strike','text_spare','text_split','alley_backdrop','meter_frame','meter_marker','scorecard','font_10x14','font_outline_14x18','ball_sheet','ball_shadow','pin_anim_sheet'])
+const IMG={};for(const n of ['pin_sheet','bowl_button','text_strike','text_spare','text_split','alley_backdrop','meter_frame','meter_marker','scorecard','font_10x14','font_outline_14x18','ball_sheet','ball_shadow','pin_anim_sheet','pin_atlas_tip_right','pin_atlas_tip_left','pin_atlas_spin','pin_atlas_tumble'])
  {const im=new Image();im.onload=()=>IMG[n]=im;im.src='assets/'+n+'.png';}
 function drawPinAnim(p,v){const im=IMG.pin_anim_sheet,sc=v.hp/76,d=Math.round(96*sc),X=Math.round(v.q.x),Y=Math.round(v.by);
  const fr=(c,r,px,py)=>g.drawImage(im,c*96,r*96,96,96,Math.round(X-px*sc),Math.round(Y-py*sc),d,d);
  if(p.gone){if(!p.pitAt)p.pitAt=now();const pt=now()-p.pitAt;if(pt<130){const dr=pt<65?0:1;const lip=proj(p.x,PIN_Y-10).y;g.drawImage(im,(dr<0.5?4:5)*96,3*96,96,96,Math.round(X-48*sc),Math.round(lip-88*sc),d,d);}return;}
  if(!p.down){if(p.wobT!==undefined&&p.wobT<36){const seq=[0,1,2,3,2,1],k=seq[((p.wobT/3.6)|0)%6];fr(k,3,48,88);}else fr(0,0,14,82);return;}
+ const atl=(im2,i,cols,px,py,ox,oy)=>g.drawImage(im2,(i%cols)*96,Math.floor(i/cols)*96,96,96,Math.round(X+(ox||0)-px*sc),Math.round(Y+(oy||0)-py*sc),d,d);
+ if((p.fall||0)<1&&IMG.pin_atlas_tip_right&&IMG.pin_atlas_tip_left&&IMG.pin_atlas_tumble){const fd=(p.fall||0)*90,dx=p.dx||1,dy=p.dy||0,yaw=Math.atan2(-dy,dx)*180/Math.PI;
+  if(Math.abs(dy)<Math.abs(dx)*0.47){atl(dx<0?IMG.pin_atlas_tip_left:IMG.pin_atlas_tip_right,Math.round(fd/3),8,dx<0?81:14,82);return;}
+  const pi=Math.round(fd/10),yi=((Math.round(yaw/11.25)%32)+32)%32,pr=pi*10*Math.PI/180,yr=yi*11.25*Math.PI/180;
+  atl(IMG.pin_atlas_tumble,pi*32+yi,32,48,52,38*Math.sin(pr)*Math.cos(yr)*sc,-38*Math.cos(pr)*sc);return;}
  if((p.fall||0)<1){const k=Math.min(10,Math.round((p.fall||0)*10));if((p.dx||1)<0)fr(k,1,81,82);else fr(k,0,14,82);return;}
- const a=p.a||0,yaw=Math.atan2(-Math.sin(a),Math.cos(a));let k=Math.round(yaw/(Math.PI/8));k=((k%16)+16)%16;fr(k,2,48,72);}
+ const a=p.a||0,yaw=Math.atan2(-Math.sin(a),Math.cos(a));if(IMG.pin_atlas_spin){const i=((Math.round(yaw*180/Math.PI/5.625)%64)+64)%64;atl(IMG.pin_atlas_spin,i,8,48,72);return;}let k=Math.round(yaw/(Math.PI/8));k=((k%16)+16)%16;fr(k,2,48,72);}
 function drawPinSprite(p,v){if(IMG.pin_anim_sheet){g.globalAlpha=v.alpha;drawPinAnim(p,v);g.globalAlpha=1;return;}const im=IMG.pin_sheet;const f=p.fall===undefined?0:Math.min(5,Math.round(p.fall*5));
  const sc=v.hp/76,dw=96*sc,dl=(p.dx||1)<0;const hop=Math.sin((p.fall||0)*Math.PI)*v.hp*0.25*(p.hopK||0);
  g.globalAlpha=v.alpha;g.save();g.translate(Math.round(v.q.x),Math.round(v.by-hop));if(dl)g.scale(-1,1);
