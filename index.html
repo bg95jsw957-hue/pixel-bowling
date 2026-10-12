@@ -23,11 +23,11 @@ canvas{position:fixed;left:0;top:0;image-rendering:pixelated;image-rendering:cri
 // Ball: skid on oil -> hook when friction rises (dry back end) -> roll, from lateral rev (side spin).
 const LX=24,LR=66,GW=6,CX=45,PR=2.4,BR=4.3,START_Y=145,FOUL_Y=175,PIN_Y=22,SP=11;
 const DEF_START_X=CX,AIM_Y=105,AIM_SWEEP=11;
-const M_BALL=16,M_PIN=3.5,E_BP=0.65,E_PP=0.75,MU_C=0.25,TOPPLE_J=1.0;
+const M_BALL=16,M_PIN=3.5,E_BP=0.55,E_PP=0.4,MU_C=0.25,TOPPLE_J=1.0;
 const OIL_END=72,MU_OIL=0.0016,MU_DRY=0.0125,REV_MAX=1.4;
 const KICK_L=LX-GW,KICK_R=LR+GW,DECK_Y=PIN_Y+38,PIT_Y=PIN_Y-12;
 const LYING=[[-4.5,2.4],[0.5,1.9],[5.5,1.3]]; // capsule circles: [axial offset from center, radius]
-const I_LY=M_PIN*15*15/12;
+const V_TIP=0.1,SLIDE_MAX=1.2;const I_LY=M_PIN*15*15/12;
 let ball,pins,state,frames,t0,mPow,mSpin,lockPow,lockSpin,freeze=false;
 let aim={x:DEF_START_X,tx:DEF_START_X};
 let RNG=Math.random;
@@ -86,6 +86,7 @@ function sub(dt){const b=ball;
  for(let i=0;i<pins.length;i++)for(let j=i+1;j<pins.length;j++)contact(pins[i],pins[j]);
  for(const p of pins){if(p.gone)continue;const fr=p.lying?0.0035:0.025;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-fr*dt;p.vy*=1-fr*dt;
   if(p.lying){p.a+=p.w*dt;p.w*=1-0.02*dt;}
+  else{const sp=Math.hypot(p.vx,p.vy);if(sp>V_TIP){topple(p,p.vx,p.vy);}else if(sp>0){p.slid=(p.slid||0)+sp*dt;p.vx*=1-0.35*dt;p.vy*=1-0.35*dt;if(p.slid>SLIDE_MAX)topple(p,p.vx,p.vy);}}
   if(Math.hypot(p.vx,p.vy)<0.01){p.vx=p.vy=0;}walls(p,dt);}}
 // ================= SCORING =================
 function computeTotals(r){const out=[];let i=0,tot=0;
@@ -126,6 +127,7 @@ function press(){btnPress=6;
  else if(state==='over'){reset();}}
 let doneT=0;const PINW=1.0;
 function finish(){doneT=0;
+ for(const p of pins)if(!p.down&&(p.lying||p.gone||(p.fall||0)>0||p.x<LX+PR||p.x>LR-PR||p.y<PIT_Y+PR||p.y>DECK_Y)){p.down=true;}
  const n=pins.filter(p=>p.down).length,standing=pins.length,fresh=G.fresh;
  const left=pins.filter(p=>!p.down);
  const split=fresh&&n<10&&n>0&&pins[0].down&&left.length>=2&&isSplit(left);
