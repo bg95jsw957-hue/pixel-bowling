@@ -169,9 +169,9 @@ function twH(str){return IMG.font_outline_14x18?str.length*12+2:tw(str,1);}
 function textH(str,x,y,c){if(!IMG.font_outline_14x18){textO(str,x,y,1,c);return;}const fi=fontH(c);x=Math.round(x);y=Math.round(y);for(const ch of str){const n=FORDER.indexOf(ch);if(n>=0&&ch!==' ')g.drawImage(fi,(n%16)*14,(n>>4)*18,14,18,x,y,14,18);x+=12;}}
 let cheerStart=-1e9,cheerHold=false,CROWD=[];
 function buildCrowd(){CROWD=[];let id=0;for(const side of [0,1]){let ly=25+RNG()*3;while(ly<=130){const x=side?81+RNG()*3:6+RNG()*3;
-  CROWD.push({x,ly,side,row:(id*7+side*3)%10,ph:RNG()*880,id:id++});ly+=10+RNG()*4;}}
+  CROWD.push({x,ly,side,row:(id*7+side*3)%60,ph:RNG()*880,id:id++});ly+=10+RNG()*4;}}
  CROWD.sort((a,b)=>a.ly-b.ly);const near=[...CROWD].sort((a,b)=>b.ly-a.ly);near.forEach((c,i)=>c.slot=i>>1);}
-function drawCrowd(){const SR=IMG.crowd_smooth_right,SL=IMG.crowd_smooth_left;if(!SR||!SL||!PORTRAIT)return;const t=now();
+function drawCrowd(){const SR=IMG.crowd_smooth_right_lo;if(!SR||!PORTRAIT)return;const t=now();
  const yTop=SAT+80*Q/2+30,far=proj(KICK_L,PIN_Y-10),farR=proj(KICK_R,PIN_Y-10),nr=proj(KICK_L,START_Y+30),nrR=proj(KICK_R,START_Y+30),mTop=M.cy-M.L/2-12;
  g.save();g.beginPath();g.moveTo(0,yTop);g.lineTo(far.x,yTop);g.lineTo(far.x,far.y);g.lineTo(nr.x,nr.y);g.lineTo(0,nr.y);g.closePath();
  const yr=t2=>far.y+(nrR.y-far.y)*t2;const tm=clamp((mTop-farR.y)/(nrR.y-farR.y),0,1),xm=farR.x+(nrR.x-farR.x)*tm;
@@ -179,11 +179,10 @@ function drawCrowd(){const SR=IMG.crowd_smooth_right,SL=IMG.crowd_smooth_left;if
  const calm=t<slowUntil,ex=Math.max(0,heat);g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
  for(const c of CROWD){const q=proj(c.x,c.ly),k=q.s/0.2982*(Q/2);const grp=c.id%3===2,fw=grp?192:96,w=fw*k,h=192*k;if(q.x+w<0||q.x-w>W)continue;
   const ct=t-cheerStart-c.slot*30,cheer=cheerHold||(ct>0&&ct<1800)||(ex>0.5&&((c.id+((t/700)|0))%Math.max(2,Math.round(6-ex*4))===0));
-  let im,f,ax;
-  if(grp){im=IMG['crowd_group_'+(1+c.id%3===0?1:((c.id/3|0)%3)+1)+(c.side?'_left':'_right')];if(!im)continue;ax=96;
-   f=cheer?3+(((t/140)|0)+c.id)%2:[0,1,2,1][(((t+c.ph)/((calm?320:180)/HM()))|0)%4];g.drawImage(im,f*192,0,192,192,Math.round(q.x-ax*k),Math.round(q.y-188*k),Math.round(w),Math.round(h));}
-  else{im=c.side?SL:SR;ax=c.side?47:48;f=cheer?8+((((t+c.ph)/70)|0)%6):((((t+c.ph)/((calm?220:120)/HM()))|0)%8);
-   g.drawImage(im,f*96,c.row*192,96,192,Math.round(q.x-ax*k),Math.round(q.y-188*k),Math.round(w),Math.round(h));}}
+  const kl=k/0.75,fl=(im,sx,sy,fw2,ax,ay)=>{const dw=fw2*kl,dh=144*kl;if(c.side){g.save();g.translate(Math.round(q.x),0);g.scale(-1,1);g.drawImage(im,sx,sy,fw2,144,Math.round(-ax*kl),Math.round(q.y-ay*kl),dw,dh);g.restore();}else g.drawImage(im,sx,sy,fw2,144,Math.round(q.x-ax*kl),Math.round(q.y-ay*kl),dw,dh);};
+  if(grp){const im=IMG['crowd_group_'+(1+((c.id/3|0)%6))+'_right_lo'];if(!im)continue;
+   const f=cheer?3+(((t/140)|0)+c.id)%2:[0,1,2,1][(((t+c.ph)/((calm?320:180)/HM()))|0)%4];fl(im,f*144,0,144,72,141);}
+  else{const f=cheer?8+((((t+c.ph)/70)|0)%6):((((t+c.ph)/((calm?220:120)/HM()))|0)%8);fl(SR,f*72,c.row*144,72,36,141);}}
  g.restore();g.imageSmoothingEnabled=false;}
 function textO(str,x,y,s,c,o,sh){o=o||'#120a1c';if(sh)text(str,x+s,y+s+1,s,sh);for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1],[1,1],[-1,1],[1,-1],[-1,-1]])text(str,x+dx,y+dy,s,o);text(str,x,y,s,c);}
 function rect(x,y,w,h,c){g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));}
@@ -317,7 +316,7 @@ function drawBall(){if(ball.y<PIN_Y-16)return;const v=ballVis();
  drawBallAt(v.q.x,v.cy,v.r,ball.rot,(ball.spin||0)*0.5+(state==='spin'||state==='power'?(lockSpin??mSpin??0)*0.5:0),v.alpha,false);}
 function drawBallRefl(){if(ball.gutter||ball.y<PIN_Y-8)return;const v=ballVis();drawBallAt(v.q.x,v.q.y+v.r*0.85,v.r*0.85,ball.rot,0,0.16,true);}
 // ---- sprite assets (fall back to code-drawn if missing)
-const IMG={};for(const n of ['pin_sheet','bowl_button','text_strike','text_spare','text_split','alley_backdrop','meter_frame','meter_marker','scorecard','font_10x14','font_outline_14x18','ball_sheet','ball_shadow','pin_anim_sheet','pin_atlas_tip_right','pin_atlas_tip_left','pin_atlas_spin','pin_atlas_tumble','crowd_smooth_right','crowd_smooth_left','crowd_group_1_right','crowd_group_1_left','crowd_group_2_right','crowd_group_2_left','crowd_group_3_right','crowd_group_3_left'])
+const IMG={};for(const n of ['pin_sheet','bowl_button','text_strike','text_spare','text_split','alley_backdrop','meter_frame','meter_marker','scorecard','font_10x14','font_outline_14x18','ball_sheet','ball_shadow','pin_anim_sheet','pin_atlas_tip_right','pin_atlas_tip_left','pin_atlas_spin','pin_atlas_tumble','crowd_smooth_right_lo','crowd_group_1_right_lo','crowd_group_2_right_lo','crowd_group_3_right_lo','crowd_group_4_right_lo','crowd_group_5_right_lo','crowd_group_6_right_lo'])
  {const im=new Image();im.onload=()=>IMG[n]=im;im.src='assets/'+n+'.png';}
 function drawPinAnim(p,v){const im=IMG.pin_anim_sheet,sc=v.hp/76,d=Math.round(96*sc),X=Math.round(v.q.x),Y=Math.round(v.by);
  const fr=(c,r,px,py)=>g.drawImage(im,c*96,r*96,96,96,Math.round(X-px*sc),Math.round(Y-py*sc),d,d);
