@@ -23,8 +23,8 @@ canvas{position:fixed;left:0;top:0;image-rendering:pixelated;image-rendering:cri
 // Ball: skid on oil -> hook when friction rises (dry back end) -> roll, from lateral rev (side spin).
 const LX=24,LR=66,GW=6,CX=45,PR=2.4,BR=4.3,START_Y=145,FOUL_Y=175,PIN_Y=22,SP=11;
 const DEF_START_X=CX,AIM_Y=105,AIM_SWEEP=11;
-const M_BALL=16,M_PIN=3.5,E_BP=0.55,E_PP=0.4,MU_C=0.25,TOPPLE_J=1.0;
-const OIL_END=72,MU_OIL=0.0016,MU_DRY=0.0125,REV_MAX=1.4;
+const M_BALL=12,M_PIN=3.5,E_BP=0.55,E_PP=0.4,MU_C=0.25,TOPPLE_J=1.0;
+const SP_MIN=1.0,SP_MAX=2.2,POW_EXP=2.2;const OIL_END=72,MU_OIL=0.0016,MU_DRY=0.0125,REV_MAX=2.0;
 const KICK_L=LX-GW,KICK_R=LR+GW,DECK_Y=PIN_Y+38,PIT_Y=PIN_Y-12;
 const LYING=[[-4.5,2.4],[0.5,1.9],[5.5,1.3]]; // capsule circles: [axial offset from center, radius]
 const V_TIP=0.1,SLIDE_MAX=1.2;const I_LY=M_PIN*15*15/12;
@@ -33,8 +33,8 @@ let aim={x:DEF_START_X,tx:DEF_START_X};
 let RNG=Math.random;
 function newRack(){const a=[];for(let r=0;r<4;r++)for(let i=0;i<=r;i++)a.push({x:CX+(i-r/2)*SP,y:PIN_Y+(3-r)*SP*0.866,vx:0,vy:0,down:false});return a;}
 function launch(pv,sv){ // pv,sv: meter positions -1..1; small natural variation per throw
- const power=(pv+1)/2,jit=()=>(RNG()*2-1);
- const sp=(1.2+power*2.2)*(1+0.02*jit());ball.vy=-sp;
+ const x=clamp(pv,-1,1),power=(1+Math.sign(x)*Math.abs(x)**POW_EXP)/2,jit=()=>(RNG()*2-1);
+ const sp=(SP_MIN+power*(SP_MAX-SP_MIN))*(1+0.02*jit());ball.vy=-sp;
  ball.vx=sp*((aim.tx-ball.x)/(START_Y-AIM_Y)+0.004*jit());
  ball.spin=sv;ball.ws=ball.vx+sv*REV_MAX*(1+0.05*jit());ball.m=M_BALL;ball.hitPins=false;state='roll';}
 function bodyCircles(b){if(b===ball)return[[b.x,b.y,BR]];
@@ -412,7 +412,7 @@ function drawButton(){if(IMG.bowl_button&&state!=='over'){const b=M.btn;g.global
  const s=IMG.font_10x14?(lbl.length>5?1:2):lbl.length>5?Math.max(1,Math.floor(K)):Math.max(2,Math.round(K*1.1));const w=tw(lbl,s);
  const gh=IMG.font_10x14?14:5;text(lbl,x+(b.w-w)/2+1,y+(b.h-gh*s)/2+1,s,'#6a2408');text(lbl,x+(b.w-w)/2,y+(b.h-gh*s)/2,s,'#ffffff');}
 function drawBanner(){if(!banner)return;const key={'STRIKE!':'text_strike','SPARE!':'text_spare','SPLIT!':'text_split'}[banner.text];
- if(key&&IMG[key]){const im=IMG[key],t=banner.t,sc=Math.min(1,(W-4)/im.width),w=im.width*sc,h=im.height*sc,y=Math.round(H*0.34+Math.sin(t*0.15)*2-(t<6?(6-t)*3:0));g.drawImage(im,Math.round(W/2-w/2),Math.round(y-h/2),Math.round(w),Math.round(h));
+ if(key&&IMG[key]){const im=IMG[key],t=banner.t,sc=Math.min(1,(W-24)/im.width),w=im.width*sc,h=im.height*sc,y=Math.round(H*0.34+Math.sin(t*0.15)*2-(t<6?(6-t)*3:0));g.drawImage(im,Math.round(W/2-w/2),Math.round(y-h/2),Math.round(w),Math.round(h));
   if(sub2)textH(sub2,W/2-twH(sub2)/2,y+h/2+6,'#ffd84a');return;}const t=banner.t,s0=IMG.font_10x14?3:Math.max(2,Math.round(K*2.2)),s=t<4?s0+2:t<7?s0+1:s0,str=banner.text;
  const y=Math.round(H*0.36+Math.sin(t*0.15)*2),x0=W/2-tw(str,s)/2;let x=x0;
  for(let i=0;i<str.length;i++){const ch=str[i];const c=banner.col==='rainbow'?['#ff4a4a','#ffb02e','#ffe94a','#5be05b','#4ad0ff','#b07cff'][(i+(t>>2))%6]:banner.col;
@@ -463,7 +463,7 @@ addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();press();}
 document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 document.addEventListener('gesturestart',e=>e.preventDefault());
 document.addEventListener('dblclick',e=>e.preventDefault());
-function loop(){if(state==='aim'){if(sweepOn){const lo=Math.max(LX+2,aim.x-AIM_SWEEP),hi=Math.min(LR-2,aim.x+AIM_SWEEP),ms=1830/HM(),t=((now()-sweepT0)/ms+0.5)%2,o=t<1?t*2-1:3-t*2;aim.tx=(lo+hi)/2+o*(hi-lo)/2;}else aim.tx=aim.x;}if(state==='spin')mSpin=osc(1200/HM());if(state==='power')mPow=osc(1030/HM());step();step();if(state==='roll'&&ball.hitPins)step();updateVisuals();draw();requestAnimationFrame(loop);}
+function loop(){if(state==='aim'){if(sweepOn){const lo=LX-GW,hi=LR+GW,ms=1830/HM(),t=((now()-sweepT0)/ms)%2,o=t<1?t*2-1:3-t*2;aim.tx=(lo+hi)/2+o*(hi-lo)/2;}else aim.tx=aim.x;}if(state==='spin')mSpin=osc(1200/HM());if(state==='power')mPow=osc(1030/HM());step();step();if(state==='roll'&&ball.hitPins)step();updateVisuals();draw();requestAnimationFrame(loop);}
 // ================= BOOT (+ screenshot demo modes via URL hash) =================
 fit();reset();
 if(location.hash==='#idle'||location.hash==='#roll'){for(const n of [10,7,3,9,0,10,8,2,6,1])applyRoll(G,n);G.fresh=true;setupBall(true);aim.x=53;ball.x=53;aim.tx=50;startSweep();
