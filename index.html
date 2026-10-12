@@ -74,7 +74,7 @@ function ballLane(b,dt){ // skid / hook / roll from lateral rev
  if(b.gutter||b.gone)return;const mu=b.y>OIL_END?MU_OIL:MU_DRY,slip=b.ws-b.vx;
  if(Math.abs(slip)>1e-4){const f=Math.sign(slip)*Math.min(mu*dt*Math.pow(3/Math.max(1,-b.vy),1.6),Math.abs(slip)/3.5);b.vx+=f;b.ws-=2.5*f;}
  b.vy*=1-0.0012*dt;}
-function step(){if(state!=='roll'||freeze)return;frames++;for(let k=0;k<8;k++)sub(1/8);
+function step(){if(state!=='roll'||freeze)return;frames++;if(ball.hitPins){ball.hitT=(ball.hitT||0)+1;if(ball.hitT>330)for(const p of pins){p.vx=p.vy=0;p.w=0;}}for(let k=0;k<8;k++)sub(1/8);
  const b=ball,moving=pins.some(p=>!p.gone&&Math.hypot(p.vx,p.vy)>0.03);
  if((b.gone||b.y<4||Math.hypot(b.vx,b.vy)<0.05)&&!moving||frames>1200)finish();}
 function sub(dt){const b=ball;
@@ -84,10 +84,10 @@ function sub(dt){const b=ball;
  if(b.y<PIT_Y)b.gone=true;
  for(const p of pins){if(p.lying===undefined){p.lying=false;p.w=0;p.a=0;}if(!b.gutter&&!b.gone)contact(b,p);}
  for(let i=0;i<pins.length;i++)for(let j=i+1;j<pins.length;j++)contact(pins[i],pins[j]);
- for(const p of pins){if(p.gone)continue;const fr=p.lying?0.0035:0.025;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-fr*dt;p.vy*=1-fr*dt;
-  if(p.lying){p.a+=p.w*dt;p.w*=1-0.02*dt;}
+ for(const p of pins){if(p.gone)continue;const fr=p.lying?0.01:0.025;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-fr*dt;p.vy*=1-fr*dt;if(p.lying){const sp=Math.hypot(p.vx,p.vy),dec=0.0022*dt;if(sp<=dec){p.vx=p.vy=0;}else{p.vx-=p.vx/sp*dec;p.vy-=p.vy/sp*dec;}}
+  if(p.lying){p.a+=p.w*dt;p.w*=1-0.045*dt;if(Math.abs(p.w)<0.003)p.w=0;}
   else{const sp=Math.hypot(p.vx,p.vy);if(sp>V_TIP){topple(p,p.vx,p.vy);}else if(sp>0){p.slid=(p.slid||0)+sp*dt;p.vx*=1-0.35*dt;p.vy*=1-0.35*dt;if(p.slid>SLIDE_MAX)topple(p,p.vx,p.vy);}}
-  if(Math.hypot(p.vx,p.vy)<0.01){p.vx=p.vy=0;}walls(p,dt);}}
+  if(Math.hypot(p.vx,p.vy)<0.02){p.vx=p.vy=0;}walls(p,dt);}}
 // ================= SCORING =================
 function computeTotals(r){const out=[];let i=0,tot=0;
  for(let f=0;f<10&&i<r.length;f++){
