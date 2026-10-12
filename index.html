@@ -87,10 +87,10 @@ function finish(){doneT=0;
  const split=fresh&&n<10&&n>0&&pins[0].down&&left.length>=2&&isSplit(left);
  const {over}=applyRoll(G,n);
  let big,col;
- if(fresh&&n===10){big='STRIKE!';col='rainbow';shake=7;burst(60);}
- else if(!fresh&&n===standing&&n>0){big='SPARE!';col='#7cf';shake=4;burst(30);}
- else if(split){big='SPLIT!';col='#f84';}
- else if(ball.gutter&&n===0){big='GUTTER';col='#aaa';}
+ if(fresh&&n===10){cheerUntil=now()+1500;big='STRIKE!';col='rainbow';shake=7;burst(60);}
+ else if(!fresh&&n===standing&&n>0){cheerUntil=now()+1500;big='SPARE!';col='#7cf';shake=4;burst(30);}
+ else if(split){slowUntil=now()+3000;big='SPLIT!';col='#f84';}
+ else if(ball.gutter&&n===0){slowUntil=now()+3000;big='GUTTER';col='#aaa';}
  else{big=n+(n===1?' PIN':' PINS');col='#fff';}
  lastMsg=n===10&&fresh?'STRIKE! 10 pins!':n+' pin'+(n===1?'':'s')+' down'+(split?' - SPLIT!':'')+(ball.gutter&&n===0?' (gutter!)':'');
  banner={t:0,text:big,col};
@@ -111,6 +111,14 @@ const FORDER="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !?.,:-+/'()#%x";const FTINT={
 function fontFor(c){if(FTINT[c])return FTINT[c];const im=IMG.font_5x7;const cc=document.createElement('canvas');cc.width=96;cc.height=32;const x=cc.getContext('2d');x.drawImage(im,0,0);x.globalCompositeOperation='source-in';x.fillStyle=c;x.fillRect(0,0,96,32);return FTINT[c]=cc;}
 function tw(str,s){return IMG.font_5x7?str.length*6*s-s:str.length*4*s-s;}
 function text(str,x,y,s,c){if(IMG.font_5x7){const fi=fontFor(c);x=Math.round(x);y=Math.round(y);for(const ch of str){const n=FORDER.indexOf(ch);if(n>=0&&ch!==' ')g.drawImage(fi,(n%16)*6,(n>>4)*8,5,7,x,y,5*s,7*s);x+=6*s;}return;}g.fillStyle=c;x=Math.round(x);y=Math.round(y);for(const ch of str){const f=F[ch];if(f)for(let i=0;i<15;i++)if(f[i]==='1')g.fillRect(x+(i%3)*s,y+((i/3)|0)*s,s,s);x+=4*s;}}
+let cheerUntil=0,slowUntil=0;const FHT={};
+function fontH(c){if(FHT[c])return FHT[c];const im=IMG.font_outline_7x9,cc=document.createElement('canvas');cc.width=im.width;cc.height=im.height;const x=cc.getContext('2d');x.drawImage(im,0,0);x.globalCompositeOperation='multiply';x.fillStyle=c;x.fillRect(0,0,cc.width,cc.height);x.globalCompositeOperation='destination-in';x.drawImage(im,0,0);return FHT[c]=cc;}
+function twH(str){return IMG.font_outline_7x9?str.length*7+1:tw(str,1);}
+function textH(str,x,y,c){if(!IMG.font_outline_7x9){textO(str,x,y,1,c);return;}const fi=fontH(c);x=Math.round(x);y=Math.round(y);for(const ch of str){const n=FORDER.indexOf(ch);if(n>=0&&ch!==' ')g.drawImage(fi,(n%16)*8,(n>>4)*10,8,10,x,y,8,10);x+=7;}}
+function drawCrowd(){if(!IMG.crowd_left||!IMG.crowd_right||!PORTRAIT)return;const t=now(),ox=Math.round((W-195)/2);
+ for(const [im,x,side] of [[IMG.crowd_left,ox,0],[IMG.crowd_right,ox+149,1]]){let f;
+  if(t<cheerUntil)f=3+(((t/120)|0)+side)%2;else{const per=t<slowUntil?400:250;f=[0,1,2,1][(((t/per)|0)+side*2)%4];}
+  g.drawImage(im,f*46,0,46,56,x,104,46,56);}}
 function textO(str,x,y,s,c,o,sh){o=o||'#120a1c';if(sh)text(str,x+s,y+s+1,s,sh);for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1],[1,1],[-1,1],[1,-1],[-1,-1]])text(str,x+dx,y+dy,s,o);text(str,x,y,s,c);}
 function rect(x,y,w,h,c){g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));}
 // ---- background (static, built once per resize)
@@ -155,7 +163,7 @@ function buildBg(){bgc=document.createElement('canvas');bgc.width=W;bgc.height=H
   else{const z=Z0/s-Z0,ly=FOUL_Y-z,lx=CX+(sx-W/2)/(s*SCL);let u=lx-LX;const k=Math.floor((u+GW+2+(LANE_P-42-2*GW-4)/2)/LANE_P);u-=k*LANE_P;
    c=laneColor(u,ly,sx,s,k);}
   const vx=(sx/W-0.5)*2,vy=sy/H;const vig=1-0.32*vx*vx*vx*vx-0.25*Math.max(0,vy-0.85)*4;
-  const i=(sy*W+sx)*4,th=(B4[sy&3][sx&3]+0.5)/16;for(let ch=0;ch<3;ch++){let v=c[ch]*vig;const m=(c[0]+c[1]+c[2])/3*vig;v=m+(v-m)*1.25;d[i+ch]=clamp(Math.floor(v/36+th)*36,0,255);}d[i+3]=255;}}
+  const i=(sy*W+sx)*4,th=(B4[sy&3][sx&3]+0.5)/16;for(let ch=0;ch<3;ch++){let v=c[ch]*vig;const m=(c[0]+c[1]+c[2])/3*vig;v=m+(v-m)*1.5;d[i+ch]=clamp(Math.floor(v/36+th)*36,0,255);}d[i+3]=255;}}
  b.putImageData(img,0,0);
  // --- ceiling + back wall + masking units (drawn on top, screen space)
  const pinTop=proj(CX,PIN_Y).y-15*proj(CX,PIN_Y).s*SCL;maskBot=Math.round(pinTop-3);maskTop=Math.round(maskBot-Math.max(26,H*0.075));if(PORTRAIT){maskTop=57;maskBot=89;}
@@ -219,7 +227,7 @@ const HOLES=[[0,-.35,.94],[-.22,-.62,.75],[.22,-.62,.75]].map(v=>{const l=Math.h
 const BAYER=[[0,2],[3,1]];
 const B4=[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
 function dith(x,y,w,h,c){g.fillStyle=c;x=Math.round(x);y=Math.round(y);for(let j=0;j<Math.round(h);j++)for(let i=(j+x+y)&1;i<Math.round(w);i+=2)g.fillRect(x+i,y+j,1,1);}
-function drawBallAt(cx,cy,r,rot,tilt,alpha,refl){if(!refl){const o=Math.ceil(r)+1;g.fillStyle='#0c0820';for(let yy=-o;yy<o;yy++){const w=Math.sqrt(Math.max(0,(r+1)*(r+1)-(yy+.5)*(yy+.5)));if(w>0)g.fillRect(Math.round(cx-w),Math.round(cy+yy),Math.round(2*w),1);}}
+function drawBallAt(cx,cy,r,rot,tilt,alpha,refl){if(!refl){const o=Math.ceil(r)+1;g.fillStyle='#000';for(let yy=-o;yy<o;yy++){const w=Math.sqrt(Math.max(0,(r+1.6)*(r+1.6)-(yy+.5)*(yy+.5)));if(w>0)g.fillRect(Math.round(cx-w),Math.round(cy+yy),Math.round(2*w),1);}}
  const R_=Math.max(1.5,r),ir=Math.ceil(R_);const cr=Math.cos(rot),sr=Math.sin(rot),ct=Math.cos(tilt),st=Math.sin(tilt);g.globalAlpha=alpha;
  for(let yy=-ir;yy<ir;yy++)for(let xx=-ir;xx<ir;xx++){const nx=(xx+0.5)/R_,ny=(yy+0.5)/R_*(refl?-1:1),q=nx*nx+ny*ny;if(q>1)continue;const nz=Math.sqrt(1-q);
   // lighting
@@ -242,7 +250,7 @@ function drawBall(){if(ball.y<PIN_Y-16)return;const v=ballVis();
  drawBallAt(v.q.x,v.cy,v.r,ball.rot,(ball.spin||0)*0.5+(state==='spin'||state==='power'?(lockSpin??mSpin??0)*0.5:0),v.alpha,false);}
 function drawBallRefl(){if(ball.gutter||ball.y<PIN_Y-8)return;const v=ballVis();drawBallAt(v.q.x,v.q.y+v.r*0.85,v.r*0.85,ball.rot,0,0.16,true);}
 // ---- sprite assets (fall back to code-drawn if missing)
-const IMG={};for(const n of ['pin_sheet','bowl_button','text_strike','text_spare','text_split','alley_backdrop','meter_frame','meter_marker','scorecard','font_5x7'])
+const IMG={};for(const n of ['pin_sheet','bowl_button','text_strike','text_spare','text_split','alley_backdrop','meter_frame','meter_marker','scorecard','font_5x7','font_outline_7x9','crowd_left','crowd_right'])
  {const im=new Image();im.onload=()=>IMG[n]=im;im.src='assets/'+n+'.png';}
 function drawPinSprite(p,v){const im=IMG.pin_sheet;const f=p.fall===undefined?0:Math.min(5,Math.round(p.fall*5));
  const sc=v.hp/38,dw=48*sc,dl=(p.dx||1)<0;const hop=Math.sin((p.fall||0)*Math.PI)*v.hp*0.25*(p.hopK||0);
@@ -265,11 +273,11 @@ function drawCard(){if(IMG.scorecard){drawCardImg();return;}drawCardCode();}
 function drawCardImg(){const X=3,Y=SAT+2,flat=G.frames.flat(),tots=computeTotals(flat);
  g.globalAlpha=0.7;rect(0,0,W,SAT+36,'#0d0a1c');g.globalAlpha=1;g.drawImage(IMG.scorecard,X,Y);
  for(let f=0;f<10;f++){const fx=X+(f<9?f*18:162),w=f<9?18:26,nb=f<9?2:3,m=marks(G.frames[f],f===9);
-  m.forEach((s,i)=>{if(!s)return;const bx=fx+w-1-8*(nb-i);text(s,bx+2,Y+8,1,s==='X'?'#d81f2a':s==='/'?'#2a5bd7':'#2a2238');});
-  if(tots[f]!==undefined){const t=''+tots[f];text(t,fx+Math.floor((w-tw(t,1))/2)+1,Y+16,1,'#2a2238');}
+  m.forEach((s,i)=>{if(!s)return;const bx=fx+w-1-8*(nb-i);text(s,bx+2,Y+8,1,s==='X'?'#ff5a4a':s==='/'?'#5ad8ff':'#ffffff');});
+  if(tots[f]!==undefined){const t=''+tots[f];text(t,fx+Math.floor((w-tw(t,1))/2)+1,Y+16,1,'#ffffff');}
   if(f===G.f&&!G.over&&(now()/400|0)%2){g.strokeStyle='#ffb02e';g.lineWidth=1;g.strokeRect(fx+0.5,Y+0.5,w-1,23);}}
  const total=tots.length?tots[tots.length-1]:0,t='TOTAL '+total,fb=G.frames[Math.min(G.f,9)]||[];
- textO(t,W-4-tw(t,1),Y+28,1,'#ffd84a');textO('FRAME '+(Math.min(G.f,9)+1)+(G.over?'':'  BALL '+Math.min(3,fb.length+(state==='done'?0:1))),4,Y+28,1,'#cfc4e8');}
+ textH(t,W-3-twH(t),Y+27,'#ffd84a');textH('FR '+(Math.min(G.f,9)+1)+(G.over?'':' BALL '+Math.min(3,fb.length+(state==='done'?0:1))),3,Y+27,'#ffffff');}
 function drawCardCode(){g.globalAlpha=0.7;rect(0,0,W,SAT+40,'#0d0a1c');g.globalAlpha=1;const top=2+SAT,cw=Math.floor((W-6)/10.6),tw10=W-4-cw*9,h=19;let x=2;
  const flat=G.frames.flat(),tots=computeTotals(flat);
  rect(1,top-1,W-2,h+2,'#08050f');
@@ -325,14 +333,14 @@ function drawButton(){if(IMG.bowl_button&&state!=='over'){const b=M.btn,sc=Math.
  const s=lbl.length>5?Math.max(1,Math.floor(K)):Math.max(2,Math.round(K*1.1));const w=tw(lbl,s);
  text(lbl,x+(b.w-w)/2+1,y+(b.h-5*s)/2+1,s,'#6a2408');text(lbl,x+(b.w-w)/2,y+(b.h-5*s)/2,s,'#ffffff');}
 function drawBanner(){if(!banner)return;const key={'STRIKE!':'text_strike','SPARE!':'text_spare','SPLIT!':'text_split'}[banner.text];
- if(key&&IMG[key]){const im=IMG[key],t=banner.t,sc=(W>=220?2:1)*(t<4?1.4:t<7?1.15:1),w=im.width*sc,h=im.height*sc,y=Math.round(H*0.34+Math.sin(t*0.15)*2);g.drawImage(im,Math.round(W/2-w/2),Math.round(y-h/2),Math.round(w),Math.round(h));
-  if(sub2){const ss=Math.max(1,Math.round(K));textO(sub2,W/2-tw(sub2,ss)/2,y+h/2+6,ss,'#ffd84a');}return;}const t=banner.t,s0=Math.max(2,Math.round(K*2.2)),s=t<4?s0+2:t<7?s0+1:s0,str=banner.text;
+ if(key&&IMG[key]){const im=IMG[key],t=banner.t,sc=Math.min(1,(W-4)/im.width),w=im.width*sc,h=im.height*sc,y=Math.round(H*0.34+Math.sin(t*0.15)*2-(t<6?(6-t)*3:0));g.drawImage(im,Math.round(W/2-w/2),Math.round(y-h/2),Math.round(w),Math.round(h));
+  if(sub2)textH(sub2,W/2-twH(sub2)/2,y+h/2+6,'#ffd84a');return;}const t=banner.t,s0=Math.max(2,Math.round(K*2.2)),s=t<4?s0+2:t<7?s0+1:s0,str=banner.text;
  const y=Math.round(H*0.36+Math.sin(t*0.15)*2),x0=W/2-tw(str,s)/2;let x=x0;
  for(let i=0;i<str.length;i++){const ch=str[i];const c=banner.col==='rainbow'?['#ff4a4a','#ffb02e','#ffe94a','#5be05b','#4ad0ff','#b07cff'][(i+(t>>2))%6]:banner.col;
   const yy=y+Math.round(Math.sin(t*0.25+i*0.8)*(t<30?2:1));textO(ch,x,yy,s,c,'#120a1c','rgba(0,0,0,0.5)');x+=4*s;}
  if(sub2){const ss=Math.max(1,Math.round(K));textO(sub2,W/2-tw(sub2,ss)/2,y+6*s+6,ss,'#ffd84a');}}
 function drawHint(){let h='';if(state==='aim')h='TAP TO LOCK AIM';else if(state==='spin')h='TAP TO LOCK SPIN';else if(state==='power')h='TAP TO BOWL';else if(state==='over')h='TAP NEW GAME';
- if(h){const y=SAT+42;textO(h,W/2-tw(h,1)/2,y,1,'#fff');}}
+ if(h){const y=SAT+42;textH(h,W/2-twH(h)/2,y,'#fff');}}
 // ---- aim indicator (direction only)
 function drawAim(){if(state!=='aim'&&state!=='spin'&&state!=='power')return;const a=proj(ball.x,START_Y-1),b=proj(aim.tx,AIM_Y);
  const n=14,ph=(now()/90)%1;for(let i=0;i<n;i++){const t=(i+ph)/n;const ly=START_Y-1+(AIM_Y-START_Y+1)*t,lx=ball.x+(aim.tx-ball.x)*t,q=proj(lx,ly);
@@ -344,14 +352,14 @@ function drawAim(){if(state!=='aim'&&state!=='spin'&&state!=='power')return;cons
 // ---- main draw
 function draw(){
  const ox=shake?Math.round((Math.random()-0.5)*shake*2):0,oy=shake?Math.round((Math.random()-0.5)*shake*2):0;
- g.setTransform(1,0,0,1,ox,oy);g.drawImage(bgc,0,0);const BD=IMG.alley_backdrop&&PORTRAIT;if(BD)g.drawImage(IMG.alley_backdrop,Math.round((W-195)/2),0);drawLogo();
+ g.setTransform(1,0,0,1,ox,oy);g.drawImage(bgc,0,0);const BD=IMG.alley_backdrop&&PORTRAIT;if(BD)g.drawImage(IMG.alley_backdrop,Math.round((W-195)/2),0);drawLogo();drawCrowd();
  // blinking masking lights
  if(!BD){const sB=proj(CX,PIN_Y-6).s,hw=(21+GW+1)*sB*SCL,ph=(now()/120|0);for(let x=Math.round(W/2-hw)+3,i=0;x<W/2+hw-2;x+=4,i++)if((i+ph)%6===0)rect(x,maskBot-3,2,1,'#fff');}
  g.save();g.beginPath();g.rect(0,maskBot,W,H);g.clip();
  drawAim();
  const items=pins.map(p=>({y:p.y+(p.sweepY||0),f:()=>drawPin(p)}));items.push({y:ball.y+0.5,f:drawBall});
  items.sort((a,b)=>a.y-b.y).forEach(i=>i.f());g.restore();
- for(const q of parts){const z=q.life>15?2:1;rect(q.x-1,q.y-1,z+2,z+2,'#120a1c');rect(q.x,q.y,z,z,q.c);}
+ for(const q of parts){const z=q.life>15?2:1;rect(q.x-1,q.y-1,z+2,z+2,'#000');rect(q.x,q.y,z,z,q.c);}
  g.setTransform(1,0,0,1,0,0);
  drawCard();drawHint();drawMeter();drawButton();drawBanner();}
 // ---- layout
@@ -378,7 +386,7 @@ function loop(){if(state==='aim')aim.tx=CX+osc(1100)*(21-3);if(state==='spin')mS
 // ================= BOOT (+ screenshot demo modes via URL hash) =================
 fit();reset();
 if(location.hash==='#idle'||location.hash==='#roll'){for(const n of [10,7,3,9,0,10,8,2,6,1])applyRoll(G,n);G.fresh=true;setupBall(true);aim.tx=CX+6;
- if(location.hash==='#roll'){aim.x=CX;ball.x=aim.x;aim.tx=42;lockSpin=0.6;lockPow=0.2;launch(0.2,0.6);let i=0;while(pins.filter(p=>p.down).length<4&&i++<900)for(let k=0;k<6;k++)sub(1/6);for(let k=0;k<4;k++){for(let j=0;j<6;j++)sub(1/6);}freeze=true;banner={t:20,text:'STRIKE!',col:'rainbow'};}}
+ if(location.hash==='#roll'){aim.x=CX;ball.x=aim.x;aim.tx=42;lockSpin=0.6;lockPow=0.2;launch(0.2,0.6);let i=0;while(pins.filter(p=>p.down).length<4&&i++<900)for(let k=0;k<6;k++)sub(1/6);for(let k=0;k<4;k++){for(let j=0;j<6;j++)sub(1/6);}freeze=true;banner={t:20,text:'STRIKE!',col:'rainbow'};cheerUntil=1e15;}}
 loop();
 window.__test={get ball(){return ball},get pins(){return pins},get state(){return state},get G(){return G},get msg(){return lastMsg},aim,reset,setupBall,launch,step,finish,computeTotals,applyRoll,newGame,marks};
 </script></body></html>
